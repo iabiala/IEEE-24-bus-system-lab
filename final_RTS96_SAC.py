@@ -42,8 +42,8 @@ model = SAC(
     policy_kwargs=dict(net_arch=[64, 64])
 )
 
-model.learn(total_timesteps=500_000, callback=callback)
-model.save("sac_rts96_dcopf_single_ts_500k")
+model.learn(total_timesteps=1_000_000, callback=callback)
+model.save("sac_rts96_dcopf_single_ts_1M")
 
 # --- Multi-Episode Evaluation (10 episodes) ---
 N_EVAL = 10
