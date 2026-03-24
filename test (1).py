@@ -9,9 +9,14 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 env   = IEEE96DCOPF()
-model = SAC.load("sac_rts96_dcopf_single_ts_1M", env=env)
+model = SAC.load("sac_rts96_ots_j2_500k", env=env)
 
 N_EVAL = 50
+
+# Sample load factors evenly between min and max for systematic testing
+lf_min = float(env.load_factor.min())
+lf_max = float(env.load_factor.max())
+lf_values = np.linspace(lf_min, lf_max, N_EVAL)
 
 
 def segment_cost_breakdown(env, dispatch):
@@ -46,8 +51,10 @@ print("\n" + "=" * 60)
 print("POLICY GENERALIZATION EVALUATION (50 episodes)")
 print("=" * 60)
 
-for ep in range(N_EVAL):
+for ep, lf in enumerate(lf_values):
     obs, _      = env.reset(seed=SEED + ep)
+    env.demand  = env.peak_demand * lf
+    obs         = env._get_obs()
     demand_now  = float(np.sum(env.demand))
     action, _   = model.predict(obs, deterministic=True)
     obs, reward, terminated, truncated, info = env.step(action)
@@ -58,7 +65,7 @@ for ep in range(N_EVAL):
     breakdown       = segment_cost_breakdown(env, dispatch)
     total_cost      = sum(b["total_cost"] for b in breakdown)
 
-    print(f"\nEpisode {ep+1:>2} | Reward: {reward:>10.4f} | "
+    print(f"\nEpisode {ep+1:>2} | Load Factor: {lf:>5.3f} | Reward: {reward:>10.4f} | "
           f"Balance err: {balance_err:>7.2f} MW | "
           f"Flow viol: {flow_viol:>7.2f} MW | "
           f"Cost: ${total_cost:,.2f}")
@@ -68,6 +75,7 @@ for ep in range(N_EVAL):
     # ── Summary row ────────────────────────────────────────────────────────────
     summary_rows.append({
         "Episode":              ep + 1,
+        "Load Factor":          round(lf, 3),
         "Reward":               round(reward, 4),
         "Total Demand (MW)":    round(demand_now, 2),
         "Total Dispatch (MW)":  round(float(np.sum(dispatch)), 2),
@@ -81,6 +89,7 @@ for ep in range(N_EVAL):
         b = breakdown[g]
         dispatch_rows.append({
             "Episode":      ep + 1,
+            "Load Factor":  round(lf, 3),
             "Gen":          g + 1,
             "Bus":          env.gen_bus[g] + 1,
             "Dispatch (MW)": round(float(dispatch[g]), 2),
@@ -106,6 +115,7 @@ rewards    = df_summary["Reward"].tolist()
 bal_errs   = df_summary["Balance Error (MW)"].tolist()
 flow_viols = df_summary["Flow Violation (MW)"].tolist()
 costs      = df_summary["Total Cost ($)"].tolist()
+load_factors = df_summary["Load Factor"].tolist()
 
 print("\n" + "=" * 60)
 print("SUMMARY ACROSS 50 EPISODES")
@@ -113,6 +123,7 @@ print("=" * 60)
 print(f"{'Metric':<25} {'Mean':>12} {'Std':>10} {'Min':>12} {'Max':>12}")
 print("-" * 73)
 for label, vals in [
+    ("Load Factor",         load_factors),
     ("Reward",              rewards),
     ("Balance error (MW)",  bal_errs),
     ("Flow violation (MW)", flow_viols),
@@ -122,23 +133,24 @@ for label, vals in [
           f"{np.min(vals):>12.4f} {np.max(vals):>12.4f}")
 
 # ── Export to Excel ────────────────────────────────────────────────────────────
-output_file = "RTS96_SAC_Evaluation_9.xlsx"
+output_file = "RTS96_SAC_Evaluation_LF_Sweep.xlsx"
 
 with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
 
     # Sheet 1 — Episode summary
     df_summary.to_excel(writer, sheet_name="Episode Summary", index=False)
 
-    # Sheet 2 — Per-generator dispatch (all 10 episodes)
+    # Sheet 2 — Per-generator dispatch (all 50 episodes)
     df_dispatch.to_excel(writer, sheet_name="Generator Dispatch", index=False)
 
-    # Sheet 3 — Episode 10 dispatch only (matches printed table)
-    df_ep10 = df_dispatch[df_dispatch["Episode"] == N_EVAL].copy()
-    df_ep10.to_excel(writer, sheet_name="Episode 10 Dispatch", index=False)
+    # Sheet 3 — Episode 50 dispatch only (matches printed table)
+    df_ep50 = df_dispatch[df_dispatch["Episode"] == N_EVAL].copy()
+    df_ep50.to_excel(writer, sheet_name="Episode 50 Dispatch", index=False)
 
     # Sheet 4 — Stats summary
     stats_rows = []
     for label, vals in [
+        ("Load Factor",         load_factors),
         ("Reward",              rewards),
         ("Balance Error (MW)",  bal_errs),
         ("Flow Violation (MW)", flow_viols),
@@ -155,6 +167,6 @@ with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
 
 print(f"\nResults saved to {output_file}")
 print("  Sheet 1 — Episode Summary")
-print("  Sheet 2 — Generator Dispatch (all 10 episodes)")
-print("  Sheet 3 — Episode 10 Dispatch")
+print("  Sheet 2 — Generator Dispatch (all 50 episodes)")
+print("  Sheet 3 — Episode 50 Dispatch")
 print("  Sheet 4 — Statistics")

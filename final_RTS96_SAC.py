@@ -32,18 +32,18 @@ model = SAC(
     verbose=1,
     seed=SEED,
     learning_rate=3e-4,
-    buffer_size=500_000,    # replay buffer size
+    buffer_size=1_000_000,    # replay buffer size
     batch_size=256,         # minibatch size for gradient updates
     gamma=0.00,              # single-step episodes — retains previous flows/dispatch in obs
     tau=0.005,              # soft update coefficient
-    ent_coef=0.1,        # fixed entropy tuning
+    ent_coef=0.1,           # fixed entropy tuning
     train_freq=1,
     gradient_steps=1,
     policy_kwargs=dict(net_arch=[64, 64])
 )
 
-model.learn(total_timesteps=1_000_000, callback=callback)
-model.save("sac_rts96_dcopf_single_ts_1M")
+model.learn(total_timesteps=500_000, callback=callback)
+model.save("sac_rts96_dcopf_single_ts_2M")
 
 # --- Multi-Episode Evaluation (10 episodes) ---
 N_EVAL = 10

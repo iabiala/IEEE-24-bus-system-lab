@@ -89,6 +89,7 @@ class IEEE96DCOPF(gym.Env):
 
         self.current_flows = np.zeros(self.n_line)
         self.current_bus_balance = np.zeros(self.n_bus)
+        self.current_merit_dispatch = np.zeros(self.n_gen)
         self.current_dispatch = np.zeros(self.n_gen)
 
         # All lines are always energised — precompute fixed susceptance matrix
@@ -169,13 +170,14 @@ class IEEE96DCOPF(gym.Env):
         # current_flows and current_dispatch are retained from the previous episode
         # so the agent sees the last dispatch result in the next episode's observation
         self.current_bus_balance    = np.zeros(self.n_bus)
+        self.current_merit_dispatch = np.zeros(self.n_gen)
 
         self._needs_reset = False
         return self._get_obs(), {}
 
     # Step function
     def step(self, action):
-        # total_demand = float(np.sum(self.demand))
+        #total_demand = float(np.sum(self.demand))
 
         # --- Parse and clip action ---
         P       = np.array(action[:self.n_gen])
