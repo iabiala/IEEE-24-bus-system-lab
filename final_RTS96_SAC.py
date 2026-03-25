@@ -32,7 +32,7 @@ model = SAC(
     verbose=1,
     seed=SEED,
     learning_rate=3e-4,
-    buffer_size=1_000_000,    # replay buffer size
+    buffer_size=700_000,    # replay buffer size
     batch_size=256,         # minibatch size for gradient updates
     gamma=0.00,              # single-step episodes — retains previous flows/dispatch in obs
     tau=0.005,              # soft update coefficient
@@ -42,8 +42,8 @@ model = SAC(
     policy_kwargs=dict(net_arch=[64, 64])
 )
 
-model.learn(total_timesteps=500_000, callback=callback)
-model.save("sac_rts96_dcopf_single_ts_2M")
+model.learn(total_timesteps=700_000, callback=callback)
+model.save("sac_rts96_dcopf_single_ts_700k_reward_weights_3000_cost_12000_balance_2000_flow")
 
 # --- Multi-Episode Evaluation (10 episodes) ---
 N_EVAL = 10
@@ -164,7 +164,7 @@ plt.plot(smoothed, color='blue', linewidth=1.5,
          label=f'Sliding average (window={window})')
 plt.xlabel("Timestep")
 plt.ylabel("Reward")
-plt.title("SAC Training - RTS-96 DCOPF_Single-Step Episode_Lab")
+plt.title("SAC Training - RTS-96 DCOPF_Single-Step Episode_Lab_curriculum")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 
-class IEEE96DCOPF(gym.Env):
+class IEEE96DCOPF_Curriculum(gym.Env):
     """
     DC Optimal Power Flow environment
 
@@ -19,8 +19,9 @@ class IEEE96DCOPF(gym.Env):
         [load_scale (1), normalised line flows (n_line), normalised generator dispatch (n_gen)]
     """
 
-    def __init__(self):
+    def __init__(self, curriculum_episodes=250000):
         super().__init__()
+        self.curriculum_episodes = curriculum_episodes
 
         # Generator data
         gen_df = pd.read_excel("RTS96_SystemData_WithWind.xlsx", sheet_name="Generator")
@@ -72,6 +73,10 @@ class IEEE96DCOPF(gym.Env):
         # Load factor
         load_factor_df = pd.read_excel("RTS96_SystemData_WithWind.xlsx", sheet_name="load factor", index_col=0)
         self.load_factor = load_factor_df.loc["Load factor"].to_numpy()
+        self._lf_full_min = float(self.load_factor.min())
+        self._lf_full_max = float(self.load_factor.max())
+        self._curriculum_lf = self._lf_full_min
+        self._reset_count = 0
 
         # Action space: generator dispatch only
         gen_high = np.maximum(self.p_max, self.p_min + 1.0)  # prevent degenerate SAC dims
@@ -89,7 +94,6 @@ class IEEE96DCOPF(gym.Env):
 
         self.current_flows = np.zeros(self.n_line)
         self.current_bus_balance = np.zeros(self.n_bus)
-        self.current_merit_dispatch = np.zeros(self.n_gen)
         self.current_dispatch = np.zeros(self.n_gen)
 
         # All lines are always energised — precompute fixed susceptance matrix
@@ -161,23 +165,28 @@ class IEEE96DCOPF(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        # Sample a random load factor for this episode
-        lf_min = float(self.load_factor.min())
-        lf_max = float(self.load_factor.max())
-        lf = float(self.np_random.uniform(lf_min, lf_max))
+        if self._reset_count < self.curriculum_episodes:
+            # Phase 1: cyclic curriculum over [lf_min, lf_max]
+            lf = self._curriculum_lf
+            self._curriculum_lf += 0.001
+            if self._curriculum_lf > self._lf_full_max:
+                self._curriculum_lf = self._lf_full_min
+        else:
+            # Phase 2: random uniform sampling for generalization
+            lf = float(self.np_random.uniform(self._lf_full_min, self._lf_full_max))
+        self._reset_count += 1
         self.demand = self.peak_demand * lf
 
         # current_flows and current_dispatch are retained from the previous episode
         # so the agent sees the last dispatch result in the next episode's observation
         self.current_bus_balance    = np.zeros(self.n_bus)
-        self.current_merit_dispatch = np.zeros(self.n_gen)
 
         self._needs_reset = False
         return self._get_obs(), {}
 
     # Step function
     def step(self, action):
-        #total_demand = float(np.sum(self.demand))
+        # total_demand = float(np.sum(self.demand))
 
         # --- Parse and clip action ---
         P       = np.array(action[:self.n_gen])
@@ -217,8 +226,8 @@ class IEEE96DCOPF(gym.Env):
         )
 
         reward = -(
-            3000 * cost_term
-            + 12000 * bus_balance_penalty
+            1000 * cost_term
+            + 15000 * bus_balance_penalty
             + 2000  * flow_penalty
         )
 

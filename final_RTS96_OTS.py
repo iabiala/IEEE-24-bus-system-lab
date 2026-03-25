@@ -249,8 +249,8 @@ class IEEE96OTS(gym.Env):
         n_open = int(self.n_line - np.sum(z))
 
         reward = -(
-            1000  * cost_term
-            + 15000 * bus_balance_penalty
+            3000  * cost_term
+            + 12000 * bus_balance_penalty
             + 2000  * flow_penalty
         )
 

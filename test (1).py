@@ -9,9 +9,9 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 env   = IEEE96DCOPF()
-model = SAC.load("sac_rts96_ots_j2_500k", env=env)
+model = SAC.load("sac_rts96_dcopf_single_ts_700k_reward_weights_3000_cost_12000_balance_2000_flow", env=env)
 
-N_EVAL = 50
+N_EVAL = 10
 
 # Sample load factors evenly between min and max for systematic testing
 lf_min = float(env.load_factor.min())
